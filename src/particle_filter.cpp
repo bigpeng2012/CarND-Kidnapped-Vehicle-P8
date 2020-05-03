@@ -49,7 +49,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 
     Particle particle;
     particle.id = i;
-    particle.x = dist_x(gen);
+    particle.x = dist_x(gen);  // generator
     particle.y = dist_y(gen);
     particle.theta = dist_theta(gen);
     particle.weight = 1.0;
@@ -60,6 +60,9 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
   // The filter is now initialized.
   is_initialized = true;
 }
+
+// based on previous velocity and yawangle, 
+// to get the new particles
 
 void ParticleFilter::prediction(double delta_t, double std_pos[], double velocity, double yaw_rate) {
 	// TODO: Add measurements to each particle and add random Gaussian noise.
@@ -77,7 +80,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
   normal_distribution<double> dist_y(0, std_y);
   normal_distribution<double> dist_theta(0, std_theta);
 
-  // Calculate new state.
+  // Calculate new state for each previous defined particles.
   for (int i = 0; i < num_particles; i++) {
 
   	double theta = particles[i].theta;
@@ -86,7 +89,8 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
       particles[i].x += velocity * delta_t * cos( theta );
       particles[i].y += velocity * delta_t * sin( theta );
       // yaw continue to be the same.
-    } else {
+
+    } else {  // yaw change
       particles[i].x += velocity / yaw_rate * ( sin( theta + yaw_rate * delta_t ) - sin( theta ) );
       particles[i].y += velocity / yaw_rate * ( cos( theta ) - cos( theta + yaw_rate * delta_t ) );
       particles[i].theta += yaw_rate * delta_t;
@@ -135,6 +139,18 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
   }
 }
 
+
+// (1)for each particle, find all landmarks within range in map, 
+// (2)transform the observation coordinate to this particle (suppose 
+// the observation is from this particle),  
+// (3) match each inrange landmarks with observed landmarks by 
+//  finding the smallest difference,  
+// (4)calculate the weight for each particle based on
+// how close the observed landmark from this particle to the actual landmark position
+// (5) resample based on new weight, remove less chance particles, but keep the total 
+// number of particles as the same, so will be duplicated particles
+
+
 void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 		std::vector<LandmarkObs> observations, Map map_landmarks) {
 	// TODO: Update the weights of each particle using a mult-variate Gaussian distribution. You can read
@@ -177,7 +193,8 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
       mappedObservations.push_back(LandmarkObs{ observations[j].id, xx, yy });
     }
 
-    // Observation association to landmark.
+    // Observation association to inrange's landmark.
+    //observation's id is now associae with a inrange's landmark id
     dataAssociation(inRangeLandmarks, mappedObservations);
 
     // Reseting weight.
@@ -193,6 +210,11 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
       unsigned int k = 0;
       unsigned int nLandmarks = inRangeLandmarks.size();
       bool found = false;
+
+      // duplicate action with 
+      //dataAssociation(inRangeLandmarks, mappedObservations)?
+      
+      // for each observation, find the in range landmark
       while( !found && k < nLandmarks ) {
         if ( inRangeLandmarks[k].id == landmarkId) {
           found = true;
@@ -202,7 +224,8 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
         k++;
       }
 
-      // Calculating weight.
+      // Calculating weight baesd on distance between this particle's 
+      // observed landmark position and the actual landmark position
       double dX = observationX - landmarkX;
       double dY = observationY - landmarkY;
 
@@ -232,18 +255,18 @@ void ParticleFilter::resample() {
   }
 
   // Creating distributions.
-  uniform_real_distribution<double> distDouble(0.0, maxWeight);
-  uniform_int_distribution<int> distInt(0, num_particles - 1);
+  uniform_real_distribution<double> distDouble(0.0, maxWeight);  
+  uniform_int_distribution<int> distInt(0, num_particles - 1); 
 
   // Generating index.
-  int index = distInt(gen);
+  int index = distInt(gen);  // random pick a particle
 
   double beta = 0.0;
 
   // the wheel
   vector<Particle> resampledParticles;
   for(int i = 0; i < num_particles; i++) {
-    beta += distDouble(gen) * 2.0;
+    beta += distDouble(gen) * 2.0;    //random choose a weight
     while( beta > weights[index]) {
       beta -= weights[index];
       index = (index + 1) % num_particles;
@@ -251,7 +274,11 @@ void ParticleFilter::resample() {
     resampledParticles.push_back(particles[index]);
   }
 
-  particles = resampledParticles;
+  particles = resampledParticles; 
+
+  //particles size always 100
+  //cout<<"particles size:  " <<particles.size()<<endl;
+
 }
 
 Particle ParticleFilter::SetAssociations(Particle particle, std::vector<int> associations, std::vector<double> sense_x, std::vector<double> sense_y)

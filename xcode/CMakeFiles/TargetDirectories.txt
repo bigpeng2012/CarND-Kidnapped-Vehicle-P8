@@ -1,3 +1,0 @@
-/Users/jinpengli/CarND-Kidnapped-Vehicle/xcode/CMakeFiles/particle_filter.dir
-/Users/jinpengli/CarND-Kidnapped-Vehicle/xcode/CMakeFiles/ALL_BUILD.dir
-/Users/jinpengli/CarND-Kidnapped-Vehicle/xcode/CMakeFiles/ZERO_CHECK.dir
